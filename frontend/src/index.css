@@ -1,0 +1,26 @@
+@import url("https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  background-color: #F7F5F0;
+  color: #1a1a1a;
+  font-family: "Quicksand", sans-serif;
+  font-weight: 500;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+.nav-active {
+  border-bottom: 3px solid #F5C518;
+  padding-bottom: 4px;
+}
+
+.data-mono {
+  font-family: "Space Mono", monospace;
+}

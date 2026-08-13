@@ -1,0 +1,108 @@
+import { Navigate, Route, Routes } from "react-router-dom";
+import Navbar from "./components/Navbar";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Chatbot from "./pages/Chatbot";
+import Dashboard from "./pages/Dashboard";
+import Documents from "./pages/Documents";
+import Expenses from "./pages/Expenses";
+import Login from "./pages/Login";
+import Products from "./pages/Products";
+import Register from "./pages/Register";
+import Reminders from "./pages/Reminders";
+import Reports from "./pages/Reports";
+import SalesEntry from "./pages/SalesEntry";
+
+function ProtectedPage({ children }) {
+  return (
+    <ProtectedRoute>
+      <Navbar />
+      <main className="min-h-screen bg-base px-4 pb-8 pt-24">{children}</main>
+    </ProtectedRoute>
+  );
+}
+
+function NotFound() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-base px-4">
+      <div className="max-w-md border-2 border-primary bg-white p-8 text-center shadow-brutal">
+        <h1 className="font-quicksand text-3xl font-bold">404</h1>
+        <p className="mt-2 data-mono text-sm">This page does not exist.</p>
+      </div>
+    </div>
+  );
+}
+
+export default function App() {
+  return (
+    <Routes>
+      <Route path="/" element={<Navigate to="/dashboard" replace />} />
+      <Route path="/login" element={<Login />} />
+      <Route path="/register" element={<Register />} />
+      <Route
+        path="/dashboard"
+        element={
+          <ProtectedPage>
+            <Dashboard />
+          </ProtectedPage>
+        }
+      />
+      <Route
+        path="/products"
+        element={
+          <ProtectedPage>
+            <Products />
+          </ProtectedPage>
+        }
+      />
+      <Route
+        path="/sales"
+        element={
+          <ProtectedPage>
+            <SalesEntry />
+          </ProtectedPage>
+        }
+      />
+      <Route
+        path="/expenses"
+        element={
+          <ProtectedPage>
+            <Expenses />
+          </ProtectedPage>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedPage>
+            <Reports />
+          </ProtectedPage>
+        }
+      />
+      <Route
+        path="/documents"
+        element={
+          <ProtectedPage>
+            <Documents />
+          </ProtectedPage>
+        }
+      />
+      <Route
+        path="/reminders"
+        element={
+          <ProtectedPage>
+            <Reminders />
+          </ProtectedPage>
+        }
+      />
+      <Route
+        path="/chatbot"
+        element={
+          <ProtectedPage>
+            <Chatbot />
+          </ProtectedPage>
+        }
+      />
+      <Route path="*" element={<NotFound />} />
+    </Routes>
+  );
+}
