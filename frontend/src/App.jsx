@@ -15,18 +15,20 @@ import SalesEntry from "./pages/SalesEntry";
 function ProtectedPage({ children }) {
   return (
     <ProtectedRoute>
-      <Navbar />
-      <main className="min-h-screen bg-base px-4 pb-8 pt-24">{children}</main>
+      <div className="flex h-screen overflow-hidden bg-ghost">
+        <Navbar />
+        <main className="flex-1 overflow-y-auto p-8 pt-16 md:pt-8">{children}</main>
+      </div>
     </ProtectedRoute>
   );
 }
 
 function NotFound() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-base px-4">
-      <div className="max-w-md border-2 border-primary bg-white p-8 text-center shadow-brutal">
-        <h1 className="font-quicksand text-3xl font-bold">404</h1>
-        <p className="mt-2 data-mono text-sm">This page does not exist.</p>
+    <div className="flex min-h-screen items-center justify-center bg-ghost px-4">
+      <div className="max-w-md border border-fog bg-white p-8 text-center">
+        <h1 className="font-quicksand text-3xl font-bold text-ink">404</h1>
+        <p className="mt-2 text-sm font-quicksand text-ash">This page does not exist.</p>
       </div>
     </div>
   );

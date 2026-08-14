@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { X } from "lucide-react";
 
 export default function ErrorBanner({ message }) {
   const [visible, setVisible] = useState(true);
@@ -6,15 +7,18 @@ export default function ErrorBanner({ message }) {
   if (!message || !visible) return null;
 
   return (
-    <div className="mb-4 border-2 border-primary bg-white p-3 shadow-brutal">
+    <div className="mb-4 border border-fog bg-white p-3">
       <div className="flex items-start justify-between gap-4">
-        <p className="data-mono text-sm">{message}</p>
+        <p className="flex items-center gap-2 text-sm font-quicksand italic text-ink">
+          <X size={14} />
+          {message}
+        </p>
         <button
           type="button"
-          className="border-2 border-primary bg-accent px-2 py-1 text-xs font-bold"
+          className="text-sm font-quicksand text-ash underline underline-offset-2 transition-colors hover:text-ink"
           onClick={() => setVisible(false)}
         >
-          Close
+          Dismiss
         </button>
       </div>
     </div>

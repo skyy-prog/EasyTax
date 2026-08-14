@@ -8,93 +8,92 @@ export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const [form, setForm] = useState({ email: "", password: "" });
-  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
-  const [apiError, setApiError] = useState("");
+  const [error, setError] = useState("");
 
-  const validate = () => {
-    const nextErrors = {};
-    if (!form.email.trim()) nextErrors.email = "Email is required";
-    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      nextErrors.email = "Invalid email format";
-    }
-    if (!form.password.trim()) nextErrors.password = "Password is required";
-    if (form.password && form.password.length < 6) {
-      nextErrors.password = "Password must be at least 6 characters";
-    }
-    setErrors(nextErrors);
-    return Object.keys(nextErrors).length === 0;
-  };
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setApiError("");
-    if (!validate()) return;
-
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
     try {
-      setLoading(true);
       const { data } = await api.post("/auth/login", form);
       login(data.token, data.user);
       navigate("/dashboard");
-    } catch (error) {
-      setApiError(error.response?.data?.message || "Login failed");
+    } catch (err) {
+      setError(err.response?.data?.message || "Login failed");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-base px-4">
-      <div className="w-full max-w-md border-2 border-primary bg-white p-6 shadow-brutal">
-        <div className="mb-6 border-2 border-accent bg-primary p-4 text-center">
-          <h1 className="font-quicksand text-4xl font-bold text-accent">EasyTax</h1>
+    <div className="flex min-h-screen bg-ink">
+      <section className="hidden w-2/5 flex-col justify-between p-16 text-white lg:flex">
+        <div>
+          <h1 className="text-4xl font-quicksand font-bold">EasyTax</h1>
+          <p className="mt-4 text-lg font-quicksand leading-relaxed text-silver">
+            Manage your taxes,
+            <br />
+            not your stress.
+          </p>
         </div>
+        <p className="text-xs font-mono text-ash">for small business owners in India</p>
+      </section>
 
-        <ErrorBanner message={apiError} />
+      <section className="flex w-full items-center justify-center bg-white p-10 lg:w-3/5 lg:p-16">
+        <div className="w-full max-w-md">
+          <h2 className="text-2xl font-quicksand font-bold text-ink">Welcome back</h2>
+          <p className="mb-8 text-sm font-quicksand text-ash">Login to continue to your workspace</p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-1 block font-quicksand text-sm font-bold">Email</label>
-            <input
-              name="email"
-              type="email"
-              value={form.email}
-              onChange={handleChange}
-              className="data-mono w-full border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-            />
-            {errors.email && <p className="data-mono mt-1 text-xs">{errors.email}</p>}
-          </div>
+          <ErrorBanner message={error} />
 
-          <div>
-            <label className="mb-1 block font-quicksand text-sm font-bold">Password</label>
-            <input
-              name="password"
-              type="password"
-              value={form.password}
-              onChange={handleChange}
-              className="data-mono w-full border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-            />
-            {errors.password && <p className="data-mono mt-1 text-xs">{errors.password}</p>}
-          </div>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="mb-1 block text-[10px] font-mono uppercase tracking-widest text-ash">Email</label>
+              <input
+                name="email"
+                value={form.email}
+                onChange={handleChange}
+                type="email"
+                required
+                className="w-full border-b border-fog bg-transparent py-3 text-sm font-mono text-ink placeholder:text-silver transition-colors focus:border-ink focus:outline-none"
+              />
+            </div>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full border-2 border-primary bg-accent px-5 py-2 font-quicksand text-sm font-bold shadow-brutal transition hover:shadow-brutalSm disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
-          >
-            {loading ? "Signing in..." : "Login"}
-          </button>
-        </form>
+            <div>
+              <label className="mb-1 block text-[10px] font-mono uppercase tracking-widest text-ash">Password</label>
+              <input
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                type="password"
+                required
+                className="w-full border-b border-fog bg-transparent py-3 text-sm font-mono text-ink placeholder:text-silver transition-colors focus:border-ink focus:outline-none"
+              />
+            </div>
 
-        <p className="mt-4 text-center text-sm">
-          New here? <Link to="/register" className="font-bold underline">Create account</Link>
-        </p>
-      </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-2 w-full bg-ink py-3.5 text-sm font-quicksand font-semibold text-white transition-colors hover:bg-smoke disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? "Signing in..." : "Login ->"}
+            </button>
+          </form>
+
+          <p className="mt-6 text-sm font-quicksand text-ash">
+            Don&apos;t have an account?{" "}
+            <Link to="/register" className="text-ink underline underline-offset-2">
+              Create one
+            </Link>
+          </p>
+        </div>
+      </section>
     </div>
   );
 }

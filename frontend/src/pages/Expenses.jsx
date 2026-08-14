@@ -1,34 +1,11 @@
+import { Receipt } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/axios";
 import ErrorBanner from "../components/ErrorBanner";
 import Loader from "../components/Loader";
 
-const categories = ["Rent", "Electricity", "Labour", "Other"];
-const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
-
-function InlineConfirmButton({ onConfirm }) {
-  const [confirming, setConfirming] = useState(false);
-  if (confirming) {
-    return (
-      <button
-        type="button"
-        onClick={onConfirm}
-        className="border-2 border-primary bg-accent px-2 py-1 text-xs font-bold"
-      >
-        Confirm?
-      </button>
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={() => setConfirming(true)}
-      className="border-2 border-primary bg-white px-2 py-1 text-xs font-bold"
-    >
-      Delete
-    </button>
-  );
-}
+const categories = ["Rent", "Electricity", "Labour", "Transport", "Utilities", "Other"];
+const amount = (value) => `₹ ${Number(value || 0).toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
 export default function Expenses() {
   const [expenses, setExpenses] = useState([]);
@@ -36,11 +13,16 @@ export default function Expenses() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [form, setForm] = useState({
-    description: "",
-    amount: "",
-    category: "Rent",
     date: new Date().toISOString().slice(0, 10),
+    description: "",
+    category: categories[0],
+    amount: "",
   });
+
+  const totalAmount = useMemo(
+    () => expenses.reduce((sum, item) => sum + Number(item.amount || 0), 0),
+    [expenses]
+  );
 
   const fetchExpenses = async () => {
     setLoading(true);
@@ -54,7 +36,7 @@ export default function Expenses() {
         )
       );
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to load expenses");
+      setError(err.response?.data?.message || "Unable to load expenses");
       setExpenses([]);
     } finally {
       setLoading(false);
@@ -65,34 +47,28 @@ export default function Expenses() {
     fetchExpenses();
   }, []);
 
-  const totals = useMemo(() => {
-    const count = expenses.length;
-    const sum = expenses.reduce((acc, item) => acc + Number(item.amount || 0), 0);
-    return { count, sum };
-  }, [expenses]);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError("");
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!form.description.trim()) {
       setError("Description is required");
       return;
     }
-    if (!form.amount || Number(form.amount) <= 0) {
+    if (!Number(form.amount) || Number(form.amount) <= 0) {
       setError("Amount must be greater than zero");
       return;
     }
 
+    setSaving(true);
+    setError("");
     try {
-      setSaving(true);
       await api.post("/expenses", { ...form, amount: Number(form.amount) });
       setForm((prev) => ({ ...prev, description: "", amount: "" }));
-      fetchExpenses();
+      await fetchExpenses();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save expense");
     } finally {
@@ -100,106 +76,130 @@ export default function Expenses() {
     }
   };
 
-  const handleDelete = async (id) => {
-    try {
-      await api.delete(`/expenses/${id}`);
-      fetchExpenses();
-    } catch (err) {
-      setError(err.response?.data?.message || "Unable to delete expense");
-    }
-  };
-
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-5">
-      <div className="border-b-2 border-primary pb-3">
-        <h2 className="font-quicksand text-2xl font-bold">Expenses</h2>
-        <p className="mt-2 data-mono text-sm">
-          Total Entries: {totals.count} | Total Amount: {money(totals.sum)}
-        </p>
+    <div>
+      <div className="mb-8 flex items-center justify-between border-b border-fog pb-6">
+        <div>
+          <p className="mb-1 text-xs font-mono uppercase tracking-widest text-ash">EASYTAX / EXPENSES</p>
+          <h1 className="text-3xl font-quicksand font-bold text-ink">Expenses</h1>
+        </div>
       </div>
 
+      {loading && <Loader />}
       <ErrorBanner message={error} />
 
-      <form onSubmit={handleSubmit} className="grid gap-3 border-2 border-primary bg-white p-4 shadow-brutal md:grid-cols-4">
-        <input
-          name="description"
-          value={form.description}
-          onChange={handleChange}
-          placeholder="Description"
-          className="md:col-span-2 border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-        />
-        <input
-          name="amount"
-          type="number"
-          min="0"
-          step="0.01"
-          value={form.amount}
-          onChange={handleChange}
-          placeholder="Amount"
-          className="data-mono border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-        />
-        <select
-          name="category"
-          value={form.category}
-          onChange={handleChange}
-          className="border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-        >
-          {categories.map((category) => (
-            <option key={category} value={category}>
-              {category}
-            </option>
-          ))}
-        </select>
-        <input
-          name="date"
-          type="date"
-          value={form.date}
-          onChange={handleChange}
-          className="data-mono border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-        />
+      <form onSubmit={handleSubmit} className="mb-6 border border-fog bg-white p-6">
+        <div className="mb-4 grid gap-4 md:grid-cols-4">
+          <div>
+            <label className="mb-1 block text-[10px] font-mono uppercase tracking-widest text-ash">Date</label>
+            <input
+              name="date"
+              value={form.date}
+              onChange={handleChange}
+              type="date"
+              className="w-full bg-transparent border-b border-fog text-sm font-mono text-ink py-2.5 focus:outline-none focus:border-ink placeholder:text-silver transition-colors"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] font-mono uppercase tracking-widest text-ash">Description</label>
+            <input
+              name="description"
+              value={form.description}
+              onChange={handleChange}
+              className="w-full bg-transparent border-b border-fog text-sm font-mono text-ink py-2.5 focus:outline-none focus:border-ink placeholder:text-silver transition-colors"
+              placeholder="Expense note"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] font-mono uppercase tracking-widest text-ash">Category</label>
+            <select
+              name="category"
+              value={form.category}
+              onChange={handleChange}
+              className="w-full appearance-none border border-fog bg-white px-3 py-2.5 text-sm font-mono text-ink focus:border-ink focus:outline-none"
+            >
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-[10px] font-mono uppercase tracking-widest text-ash">Amount</label>
+            <input
+              name="amount"
+              value={form.amount}
+              onChange={handleChange}
+              type="number"
+              min="0"
+              step="0.01"
+              className="w-full bg-transparent border-b border-fog text-sm font-mono text-ink py-2.5 focus:outline-none focus:border-ink placeholder:text-silver transition-colors"
+              placeholder="0.00"
+            />
+          </div>
+        </div>
+
         <button
           type="submit"
           disabled={saving}
-          className="border-2 border-primary bg-accent px-5 py-2 font-bold shadow-brutal transition hover:shadow-brutalSm disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
+          className="rounded-sm bg-ink px-5 py-2.5 text-sm font-quicksand font-semibold text-white transition-colors hover:bg-smoke disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {saving ? "Saving..." : "Add Expense"}
+          {saving ? "Saving..." : "Save Expense"}
         </button>
       </form>
 
-      <div className="overflow-x-auto border-2 border-primary bg-white shadow-brutal">
-        {loading ? (
-          <Loader />
-        ) : expenses.length === 0 ? (
-          <p className="p-4 data-mono text-sm">No expenses recorded yet.</p>
+      <section className="border border-fog bg-white overflow-hidden">
+        <div className="border-b border-fog bg-ghost px-5 py-3">
+          <h3 className="text-lg font-quicksand font-semibold text-ink">Expense Register</h3>
+        </div>
+
+        {expenses.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Receipt size={32} className="mb-4 text-silver" />
+            <p className="mb-1 text-sm font-quicksand font-semibold text-ink">No records found</p>
+            <p className="text-xs font-quicksand text-ash">No expenses recorded for this period</p>
+          </div>
         ) : (
-          <table className="w-full min-w-[700px] border-collapse">
-            <thead>
-              <tr className="bg-base">
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Description</th>
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Amount</th>
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Category</th>
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Date</th>
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {expenses.map((expense, index) => (
-                <tr key={expense._id} className={index % 2 ? "bg-base" : "bg-white"}>
-                  <td className="border border-primary px-3 py-2 text-sm">{expense.description}</td>
-                  <td className="data-mono border border-primary px-3 py-2 text-sm">{money(expense.amount)}</td>
-                  <td className="border border-primary px-3 py-2 text-sm">{expense.category}</td>
-                  <td className="data-mono border border-primary px-3 py-2 text-sm">
-                    {new Date(expense.date || expense.createdAt).toLocaleDateString("en-IN")}
-                  </td>
-                  <td className="border border-primary px-3 py-2 text-sm">
-                    <InlineConfirmButton onConfirm={() => handleDelete(expense._id)} />
-                  </td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[760px]">
+              <thead>
+                <tr className="border-b border-fog bg-ghost">
+                  <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">Date</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">Description</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">Category</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">Amount</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {expenses.map((expense, index) => (
+                  <tr
+                    key={expense._id || `${expense.description}-${index}`}
+                    className={`${index % 2 === 0 ? "bg-white" : "bg-ghost/50"} transition-colors hover:bg-fog/60`}
+                  >
+                    <td className="px-5 py-3.5 text-sm font-mono text-ink">
+                      {new Date(expense.date || expense.createdAt).toLocaleDateString("en-IN")}
+                    </td>
+                    <td className="px-5 py-3.5 text-sm font-mono text-ink">{expense.description}</td>
+                    <td className="px-5 py-3.5 text-sm font-mono text-ink">
+                      <span className="border border-fog px-2 py-0.5 text-xs font-quicksand text-ash">
+                        {expense.category || "Other"}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-sm font-mono text-ink">{amount(expense.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr className="border-t-2 border-ink bg-white">
+                  <td className="px-5 py-3.5 text-sm font-quicksand font-bold text-ink" colSpan={3}>Total</td>
+                  <td className="px-5 py-3.5 text-sm font-mono font-bold text-ink">{amount(totalAmount)}</td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }

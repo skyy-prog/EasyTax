@@ -1,7 +1,7 @@
 export default function Loader() {
   return (
-    <div className="flex items-center justify-center py-10">
-      <div className="h-8 w-8 animate-spin border-2 border-primary border-t-accent rounded-sm" />
+    <div className="h-0.5 w-full overflow-hidden bg-fog">
+      <div className="h-full w-1/3 bg-ink animate-shimmer" />
     </div>
   );
 }

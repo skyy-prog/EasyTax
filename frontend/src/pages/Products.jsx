@@ -1,3 +1,4 @@
+import { Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import api from "../api/axios";
 import ErrorBanner from "../components/ErrorBanner";
@@ -8,56 +9,36 @@ const initialForm = {
   category: "",
   costPrice: "",
   sellPrice: "",
-  gstSlab: "",
+  gstSlab: "18",
   unit: "",
 };
 
-const money = (value) => `₹${Number(value || 0).toLocaleString("en-IN")}`;
+const numberInputClass =
+  "w-full bg-transparent border-b border-fog text-sm font-mono text-ink py-2.5 focus:outline-none focus:border-ink placeholder:text-silver transition-colors";
 
-function InlineConfirmButton({ onConfirm }) {
-  const [confirming, setConfirming] = useState(false);
+const textInputClass =
+  "w-full bg-transparent border-b border-fog text-sm font-mono text-ink py-2.5 focus:outline-none focus:border-ink placeholder:text-silver transition-colors";
 
-  if (confirming) {
-    return (
-      <button
-        type="button"
-        className="border-2 border-primary bg-accent px-2 py-1 text-xs font-bold"
-        onClick={onConfirm}
-      >
-        Confirm?
-      </button>
-    );
-  }
-
-  return (
-    <button
-      type="button"
-      className="border-2 border-primary bg-white px-2 py-1 text-xs font-bold"
-      onClick={() => setConfirming(true)}
-    >
-      Delete
-    </button>
-  );
-}
+const amount = (value) => `₹ ${Number(value || 0).toLocaleString("en-IN")}`;
 
 export default function Products() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState(initialForm);
-  const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState("");
+  const [editingForm, setEditingForm] = useState(initialForm);
 
   const fetchProducts = async () => {
     setLoading(true);
     setError("");
     try {
       const { data } = await api.get("/products");
-      const list = Array.isArray(data) ? data : data?.products || [];
-      setProducts(list);
+      setProducts(Array.isArray(data) ? data : data?.products || []);
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to fetch products");
+      setError(err.response?.data?.message || "Failed to load products");
       setProducts([]);
     } finally {
       setLoading(false);
@@ -68,52 +49,30 @@ export default function Products() {
     fetchProducts();
   }, []);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
+  const handleChange = (event) => {
+    const { name, value } = event.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const openAdd = () => {
-    setEditingId(null);
-    setForm(initialForm);
-    setShowForm(true);
+  const handleEditChange = (event) => {
+    const { name, value } = event.target;
+    setEditingForm((prev) => ({ ...prev, [name]: value }));
   };
 
-  const openEdit = (product) => {
-    setEditingId(product._id);
-    setForm({
-      name: product.name || "",
-      category: product.category || "",
-      costPrice: String(product.costPrice || ""),
-      sellPrice: String(product.sellPrice || ""),
-      gstSlab: String(product.gstSlab || ""),
-      unit: product.unit || "",
-    });
-    setShowForm(true);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleCreate = async (event) => {
+    event.preventDefault();
     setSaving(true);
     setError("");
-
-    const payload = {
-      ...form,
-      costPrice: Number(form.costPrice),
-      sellPrice: Number(form.sellPrice),
-      gstSlab: Number(form.gstSlab),
-    };
-
     try {
-      if (editingId) {
-        await api.put(`/products/${editingId}`, payload);
-      } else {
-        await api.post("/products", payload);
-      }
+      await api.post("/products", {
+        ...form,
+        costPrice: Number(form.costPrice),
+        sellPrice: Number(form.sellPrice),
+        gstSlab: Number(form.gstSlab),
+      });
       setForm(initialForm);
       setShowForm(false);
-      setEditingId(null);
-      fetchProducts();
+      await fetchProducts();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to save product");
     } finally {
@@ -121,159 +80,239 @@ export default function Products() {
     }
   };
 
+  const startEdit = (product) => {
+    setEditingId(product._id);
+    setEditingForm({
+      name: product.name || "",
+      category: product.category || "",
+      costPrice: String(product.costPrice || ""),
+      sellPrice: String(product.sellPrice || ""),
+      gstSlab: String(product.gstSlab || "18"),
+      unit: product.unit || "",
+    });
+  };
+
+  const handleUpdate = async () => {
+    setSaving(true);
+    setError("");
+    try {
+      await api.put(`/products/${editingId}`, {
+        ...editingForm,
+        costPrice: Number(editingForm.costPrice),
+        sellPrice: Number(editingForm.sellPrice),
+        gstSlab: Number(editingForm.gstSlab),
+      });
+      setEditingId("");
+      setEditingForm(initialForm);
+      await fetchProducts();
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to update product");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const handleDelete = async (id) => {
+    setError("");
     try {
       await api.delete(`/products/${id}`);
-      fetchProducts();
+      await fetchProducts();
     } catch (err) {
       setError(err.response?.data?.message || "Unable to delete product");
     }
   };
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b-2 border-primary pb-3">
-        <h2 className="font-quicksand text-2xl font-bold">Products</h2>
+    <div>
+      <div className="mb-8 flex items-center justify-between border-b border-fog pb-6">
+        <div>
+          <p className="mb-1 text-xs font-mono uppercase tracking-widest text-ash">EASYTAX / PRODUCTS</p>
+          <h1 className="text-3xl font-quicksand font-bold text-ink">Products</h1>
+        </div>
         <button
           type="button"
-          className="border-2 border-primary bg-accent px-5 py-2 font-quicksand text-sm font-bold shadow-brutal transition hover:shadow-brutalSm"
-          onClick={openAdd}
+          onClick={() => setShowForm((prev) => !prev)}
+          className="rounded-sm bg-ink px-5 py-2.5 text-sm font-quicksand font-semibold text-white transition-colors hover:bg-smoke"
         >
-          Add Product
+          {showForm ? "Close" : "Add Product"}
         </button>
       </div>
 
+      {loading && <Loader />}
       <ErrorBanner message={error} />
 
-      <div className="overflow-x-auto border-2 border-primary bg-white shadow-brutal">
-        {loading ? (
-          <Loader />
-        ) : products.length === 0 ? (
-          <p className="p-4 data-mono text-sm">No products yet. Add your first product to start billing.</p>
-        ) : (
-          <table className="w-full min-w-[900px] border-collapse">
-            <thead>
-              <tr className="bg-base">
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Name</th>
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Category</th>
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Cost Price</th>
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Sell Price</th>
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">GST Slab</th>
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Unit</th>
-                <th className="border border-primary px-3 py-2 text-left text-sm font-bold">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {products.map((product, index) => (
-                <tr key={product._id} className={index % 2 ? "bg-base" : "bg-white"}>
-                  <td className="border border-primary px-3 py-2 text-sm">{product.name}</td>
-                  <td className="border border-primary px-3 py-2 text-sm">{product.category || "-"}</td>
-                  <td className="data-mono border border-primary px-3 py-2 text-sm">{money(product.costPrice)}</td>
-                  <td className="data-mono border border-primary px-3 py-2 text-sm">{money(product.sellPrice)}</td>
-                  <td className="border border-primary px-3 py-2 text-sm">
-                    <span className="border border-primary bg-accent px-2 py-0.5 text-xs font-bold text-primary">
-                      {product.gstSlab}%
-                    </span>
-                  </td>
-                  <td className="border border-primary px-3 py-2 text-sm">{product.unit || "-"}</td>
-                  <td className="border border-primary px-3 py-2 text-sm">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className="border-2 border-primary bg-accent px-2 py-1 text-xs font-bold"
-                        onClick={() => openEdit(product)}
-                      >
-                        Edit
-                      </button>
-                      <InlineConfirmButton onConfirm={() => handleDelete(product._id)} />
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {showForm && (
-        <form onSubmit={handleSubmit} className="grid gap-3 border-2 border-primary bg-white p-4 shadow-brutal md:grid-cols-2">
-          <input
-            name="name"
-            value={form.name}
-            onChange={handleChange}
-            placeholder="Product name"
-            required
-            className="border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-          />
-          <input
-            name="category"
-            value={form.category}
-            onChange={handleChange}
-            placeholder="Category"
-            className="border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-          />
-          <input
-            name="costPrice"
-            value={form.costPrice}
-            onChange={handleChange}
-            placeholder="Cost price"
-            type="number"
-            min="0"
-            step="0.01"
-            required
-            className="data-mono border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-          />
-          <input
-            name="sellPrice"
-            value={form.sellPrice}
-            onChange={handleChange}
-            placeholder="Sell price"
-            type="number"
-            min="0"
-            step="0.01"
-            required
-            className="data-mono border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-          />
-          <input
-            name="gstSlab"
-            value={form.gstSlab}
-            onChange={handleChange}
-            placeholder="GST slab %"
-            type="number"
-            min="0"
-            step="0.01"
-            required
-            className="data-mono border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-          />
-          <input
-            name="unit"
-            value={form.unit}
-            onChange={handleChange}
-            placeholder="Unit"
-            className="border-2 border-primary bg-white px-3 py-2 focus:border-accent focus:outline-none"
-          />
-          <div className="flex gap-3 md:col-span-2">
-            <button
-              type="submit"
-              disabled={saving}
-              className="border-2 border-primary bg-accent px-5 py-2 text-sm font-bold shadow-brutal transition hover:shadow-brutalSm disabled:cursor-not-allowed disabled:opacity-60 disabled:shadow-none"
-            >
-              {saving ? "Saving..." : editingId ? "Update Product" : "Save Product"}
-            </button>
+      <div
+        className={`mb-6 overflow-hidden border border-fog bg-white transition-all duration-300 ${
+          showForm ? "max-h-[500px] p-6" : "max-h-0 p-0"
+        }`}
+      >
+        <form onSubmit={handleCreate}>
+          <div className="mb-5 flex items-center justify-between border-b border-fog pb-3">
+            <h2 className="flex items-center gap-2 text-lg font-quicksand font-semibold text-ink">
+              <Plus size={16} />
+              Add New Product
+            </h2>
             <button
               type="button"
-              className="border-2 border-primary bg-white px-5 py-2 text-sm font-bold"
-              onClick={() => {
-                setShowForm(false);
-                setEditingId(null);
-                setForm(initialForm);
-              }}
+              onClick={() => setShowForm(false)}
+              className="text-sm font-quicksand text-ash underline underline-offset-2 transition-colors hover:text-ink"
             >
               Cancel
             </button>
           </div>
+
+          <div className="grid gap-4 md:grid-cols-6">
+            <input
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+              placeholder="Product Name"
+              className={`${textInputClass} md:col-span-2`}
+              required
+            />
+            <input
+              name="category"
+              value={form.category}
+              onChange={handleChange}
+              placeholder="Category"
+              className={textInputClass}
+            />
+            <input
+              name="costPrice"
+              value={form.costPrice}
+              onChange={handleChange}
+              placeholder="Cost ₹"
+              type="number"
+              min="0"
+              step="0.01"
+              className={numberInputClass}
+              required
+            />
+            <input
+              name="sellPrice"
+              value={form.sellPrice}
+              onChange={handleChange}
+              placeholder="Sell ₹"
+              type="number"
+              min="0"
+              step="0.01"
+              className={numberInputClass}
+              required
+            />
+            <select
+              name="gstSlab"
+              value={form.gstSlab}
+              onChange={handleChange}
+              className="w-full appearance-none border border-fog bg-white px-3 py-2.5 text-sm font-mono text-ink focus:border-ink focus:outline-none"
+            >
+              <option value="0">0%</option>
+              <option value="5">5%</option>
+              <option value="12">12%</option>
+              <option value="18">18%</option>
+              <option value="28">28%</option>
+            </select>
+            <input
+              name="unit"
+              value={form.unit}
+              onChange={handleChange}
+              placeholder="Unit"
+              className={textInputClass}
+            />
+          </div>
+
+          <div className="mt-5 flex justify-end">
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-sm bg-ink px-5 py-2.5 text-sm font-quicksand font-semibold text-white transition-colors hover:bg-smoke disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? "Saving..." : "Save Product"}
+            </button>
+          </div>
         </form>
-      )}
+      </div>
+
+      <div className="overflow-x-auto border border-fog bg-white">
+        {products.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-center">
+            <Package size={32} className="mb-4 text-silver" />
+            <p className="mb-1 text-sm font-quicksand font-semibold text-ink">No records found</p>
+            <p className="text-xs font-quicksand text-ash">Add your first product to start recording sales</p>
+          </div>
+        ) : (
+          <table className="w-full min-w-[1000px]">
+            <thead>
+              <tr className="border-b border-fog bg-ghost">
+                <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">#</th>
+                <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">Product Name</th>
+                <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">Category</th>
+                <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">Cost Price</th>
+                <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">Sell Price</th>
+                <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">GST Slab</th>
+                <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">Unit</th>
+                <th className="px-5 py-3 text-left text-[11px] font-mono uppercase tracking-widest text-ash">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {products.map((product, index) => {
+                const isEditing = editingId === product._id;
+                return (
+                  <tr
+                    key={product._id}
+                    className={`${index % 2 === 0 ? "bg-white" : "bg-ghost/50"} transition-colors hover:bg-fog/60`}
+                  >
+                    <td className="px-5 py-3.5 text-sm font-mono text-ink">{index + 1}</td>
+                    {isEditing ? (
+                      <>
+                        <td className="px-5 py-3.5"><input name="name" value={editingForm.name} onChange={handleEditChange} className={textInputClass} /></td>
+                        <td className="px-5 py-3.5"><input name="category" value={editingForm.category} onChange={handleEditChange} className={textInputClass} /></td>
+                        <td className="px-5 py-3.5"><input name="costPrice" value={editingForm.costPrice} onChange={handleEditChange} type="number" className={numberInputClass} /></td>
+                        <td className="px-5 py-3.5"><input name="sellPrice" value={editingForm.sellPrice} onChange={handleEditChange} type="number" className={numberInputClass} /></td>
+                        <td className="px-5 py-3.5"><input name="gstSlab" value={editingForm.gstSlab} onChange={handleEditChange} type="number" className={numberInputClass} /></td>
+                        <td className="px-5 py-3.5"><input name="unit" value={editingForm.unit} onChange={handleEditChange} className={textInputClass} /></td>
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <button type="button" onClick={handleUpdate} className="text-sm font-quicksand text-ash underline underline-offset-2 transition-colors hover:text-ink">Save</button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingId("");
+                                setEditingForm(initialForm);
+                              }}
+                              className="text-sm font-quicksand text-ash underline underline-offset-2 transition-colors hover:text-ink"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-5 py-3.5 text-sm font-mono text-ink">{product.name}</td>
+                        <td className="px-5 py-3.5 text-sm font-mono text-ink">{product.category || "-"}</td>
+                        <td className="px-5 py-3.5 text-sm font-mono text-ink">{amount(product.costPrice)}</td>
+                        <td className="px-5 py-3.5 text-sm font-mono text-ink">{amount(product.sellPrice)}</td>
+                        <td className="px-5 py-3.5 text-sm font-mono text-ink">
+                          <span className="border border-silver px-2 py-0.5 text-xs font-mono text-ink">
+                            {Number(product.gstSlab || 0)}%
+                          </span>
+                        </td>
+                        <td className="px-5 py-3.5 text-sm font-mono text-ink">{product.unit || "-"}</td>
+                        <td className="px-5 py-3.5 text-sm font-mono text-ink">
+                          <div className="flex items-center gap-3 text-ash">
+                            <button type="button" onClick={() => startEdit(product)} className="transition-colors hover:text-ink" aria-label="Edit product"><Pencil size={16} /></button>
+                            <button type="button" onClick={() => handleDelete(product._id)} className="transition-colors hover:text-ink" aria-label="Delete product"><Trash2 size={16} /></button>
+                          </div>
+                        </td>
+                      </>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
     </div>
   );
 }
