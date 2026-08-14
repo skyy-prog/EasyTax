@@ -50,7 +50,7 @@ export default function Chatbot() {
     setError("");
 
     try {
-      const { data } = await api.post("/chatbot", { message: text });
+      const { data } = await api.post("/chat", { message: text });
       const answer = data?.answer || data?.message || data?.reply || "No response received.";
       setMessages((prev) => [
         ...prev,

@@ -3,6 +3,8 @@ const Product = require("../models/Product");
 const allowedGstSlabs = [0, 5, 12, 18, 28];
 const allowedUnits = ["pcs", "kg", "litre"];
 
+const normalizeUnit = (unit) => String(unit || "").trim().toLowerCase();
+
 const addProduct = async (req, res, next) => {
   try {
     const { name, category, costPrice, sellPrice, gstSlab, unit } = req.body;
@@ -15,7 +17,9 @@ const addProduct = async (req, res, next) => {
       return res.status(400).json({ message: "Invalid GST slab" });
     }
 
-    if (!allowedUnits.includes(unit)) {
+    const normalizedUnit = normalizeUnit(unit);
+
+    if (!allowedUnits.includes(normalizedUnit)) {
       return res.status(400).json({ message: "Invalid unit" });
     }
 
@@ -30,7 +34,7 @@ const addProduct = async (req, res, next) => {
       costPrice: Number(costPrice),
       sellPrice: Number(sellPrice),
       gstSlab: Number(gstSlab),
-      unit,
+      unit: normalizedUnit,
     });
 
     return res.status(201).json(product);
@@ -61,6 +65,10 @@ const updateProduct = async (req, res, next) => {
 
     if (update.gstSlab !== undefined && !allowedGstSlabs.includes(Number(update.gstSlab))) {
       return res.status(400).json({ message: "Invalid GST slab" });
+    }
+
+    if (update.unit !== undefined) {
+      update.unit = normalizeUnit(update.unit);
     }
 
     if (update.unit !== undefined && !allowedUnits.includes(update.unit)) {

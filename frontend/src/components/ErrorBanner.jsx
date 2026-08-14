@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
 export default function ErrorBanner({ message }) {
   const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    setVisible(true);
+  }, [message]);
 
   if (!message || !visible) return null;
 

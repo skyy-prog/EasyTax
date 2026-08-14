@@ -10,8 +10,14 @@ const initialForm = {
   costPrice: "",
   sellPrice: "",
   gstSlab: "18",
-  unit: "",
+  unit: "pcs",
 };
+
+const unitOptions = [
+  { value: "pcs", label: "Pieces (pcs)" },
+  { value: "kg", label: "Kilogram (kg)" },
+  { value: "litre", label: "Litre" },
+];
 
 const numberInputClass =
   "w-full bg-transparent border-b border-fog text-sm font-mono text-ink py-2.5 focus:outline-none focus:border-ink placeholder:text-silver transition-colors";
@@ -211,13 +217,19 @@ export default function Products() {
               <option value="18">18%</option>
               <option value="28">28%</option>
             </select>
-            <input
+            <select
               name="unit"
               value={form.unit}
               onChange={handleChange}
-              placeholder="Unit"
-              className={textInputClass}
-            />
+              className="w-full appearance-none border border-fog bg-white px-3 py-2.5 text-sm font-mono text-ink focus:border-ink focus:outline-none"
+              required
+            >
+              {unitOptions.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div className="mt-5 flex justify-end">
@@ -269,7 +281,20 @@ export default function Products() {
                         <td className="px-5 py-3.5"><input name="costPrice" value={editingForm.costPrice} onChange={handleEditChange} type="number" className={numberInputClass} /></td>
                         <td className="px-5 py-3.5"><input name="sellPrice" value={editingForm.sellPrice} onChange={handleEditChange} type="number" className={numberInputClass} /></td>
                         <td className="px-5 py-3.5"><input name="gstSlab" value={editingForm.gstSlab} onChange={handleEditChange} type="number" className={numberInputClass} /></td>
-                        <td className="px-5 py-3.5"><input name="unit" value={editingForm.unit} onChange={handleEditChange} className={textInputClass} /></td>
+                        <td className="px-5 py-3.5">
+                          <select
+                            name="unit"
+                            value={editingForm.unit}
+                            onChange={handleEditChange}
+                            className="w-full appearance-none border border-fog bg-white px-3 py-2.5 text-sm font-mono text-ink focus:border-ink focus:outline-none"
+                          >
+                            {unitOptions.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        </td>
                         <td className="px-5 py-3.5">
                           <div className="flex items-center gap-3">
                             <button type="button" onClick={handleUpdate} className="text-sm font-quicksand text-ash underline underline-offset-2 transition-colors hover:text-ink">Save</button>

@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [sales, setSales] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [generating, setGenerating] = useState(false);
 
   const greeting = useMemo(() => {
@@ -75,8 +76,11 @@ export default function Dashboard() {
   const handleGenerateSummary = async () => {
     try {
       setGenerating(true);
+      setError("");
+      setNotice("");
       await api.post("/summary/generate");
       await fetchData();
+      setNotice("Summary generated successfully.");
     } catch (err) {
       setError(err.response?.data?.message || "Unable to generate summary");
     } finally {
@@ -95,6 +99,11 @@ export default function Dashboard() {
 
       {loading && <Loader />}
       <ErrorBanner message={error} />
+      {notice && (
+        <div className="mb-4 border border-fog bg-white p-3">
+          <p className="text-sm font-quicksand text-ink">{notice}</p>
+        </div>
+      )}
 
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-fog pb-5">
         <div>
