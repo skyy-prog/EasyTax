@@ -1,4 +1,4 @@
-import { Bot, Send } from "lucide-react";
+import { Bot, CheckCircle2, Send } from "lucide-react";
 import { useMemo, useState } from "react";
 import api from "../api/axios";
 import ErrorBanner from "../components/ErrorBanner";
@@ -8,6 +8,111 @@ const nowLabel = () =>
     hour: "2-digit",
     minute: "2-digit",
   });
+
+const renderInline = (text) =>
+  text.split(/(\*\*[^*]+\*\*)/g).map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+
+function FormattedAnswer({ text }) {
+  const blocks = [];
+  const lines = text.replace(/\r\n/g, "\n").split("\n");
+  let listItems = [];
+  let orderedItems = [];
+
+  const flushLists = () => {
+    if (listItems.length) {
+      blocks.push({ type: "list", items: listItems });
+      listItems = [];
+    }
+    if (orderedItems.length) {
+      blocks.push({ type: "ordered", items: orderedItems });
+      orderedItems = [];
+    }
+  };
+
+  lines.forEach((line) => {
+    const trimmed = line.trim();
+    if (!trimmed) {
+      flushLists();
+      return;
+    }
+
+    const heading = trimmed.match(/^(#{1,3})\s+(.+)$/);
+    const checkedBullet = trimmed.match(/^✔\s+(.+)$/);
+    const plainBullet = trimmed.match(/^[-*•]\s+(.+)$/);
+    const ordered = trimmed.match(/^\d+\.\s+(.+)$/);
+
+    if (heading) {
+      flushLists();
+      blocks.push({ type: "heading", text: heading[2] });
+      return;
+    }
+
+    if (checkedBullet || plainBullet) {
+      orderedItems = [];
+      listItems.push((checkedBullet || plainBullet)[1]);
+      return;
+    }
+
+    if (ordered) {
+      listItems = [];
+      orderedItems.push(ordered[1]);
+      return;
+    }
+
+    flushLists();
+    blocks.push({ type: "paragraph", text: trimmed.replace(/^_+|_+$/g, "") });
+  });
+
+  flushLists();
+
+  return (
+    <div className="space-y-3 leading-relaxed">
+      {blocks.map((block, index) => {
+        if (block.type === "heading") {
+          return (
+            <h3 key={`${block.type}-${index}`} className="text-base font-quicksand font-bold text-ink">
+              {renderInline(block.text)}
+            </h3>
+          );
+        }
+
+        if (block.type === "list") {
+          return (
+            <ul key={`${block.type}-${index}`} className="space-y-2">
+              {block.items.map((item, itemIndex) => (
+                <li key={`${item}-${itemIndex}`} className="flex gap-2 text-sm text-ink">
+                  <CheckCircle2 size={15} className="mt-0.5 flex-none text-ash" />
+                  <span>{renderInline(item)}</span>
+                </li>
+              ))}
+            </ul>
+          );
+        }
+
+        if (block.type === "ordered") {
+          return (
+            <ol key={`${block.type}-${index}`} className="list-decimal space-y-2 pl-5 text-sm text-ink">
+              {block.items.map((item, itemIndex) => (
+                <li key={`${item}-${itemIndex}`}>{renderInline(item)}</li>
+              ))}
+            </ol>
+          );
+        }
+
+        return (
+          <p key={`${block.type}-${index}`} className="text-sm text-ink">
+            {renderInline(block.text)}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
 
 export default function Chatbot() {
   const [messages, setMessages] = useState([
@@ -76,7 +181,7 @@ export default function Chatbot() {
   };
 
   return (
-    <div>
+    <div className="flex min-h-[calc(100vh-8rem)] flex-col">
       <div className="mb-8 flex items-center justify-between border-b border-fog pb-6">
         <div>
           <p className="mb-1 text-xs font-mono uppercase tracking-widest text-ash">EASYTAX / CHATBOT</p>
@@ -86,8 +191,8 @@ export default function Chatbot() {
 
       <ErrorBanner message={error} />
 
-      <div className="grid h-[calc(100vh-13rem)] gap-0 border border-fog bg-white lg:grid-cols-3">
-        <aside className="border-r border-smoke bg-charcoal p-8 text-white lg:col-span-1">
+      <div className="grid flex-1 min-h-[620px] gap-0 border border-fog bg-white lg:grid-cols-[280px_1fr]">
+        <aside className="border-b border-smoke bg-charcoal p-6 text-white lg:border-b-0 lg:border-r">
           <h2 className="text-lg font-quicksand font-semibold text-white">Tax Assistant</h2>
           <p className="mt-2 text-sm font-quicksand text-silver">Choose a question to prefill your message.</p>
 
@@ -105,29 +210,35 @@ export default function Chatbot() {
           </div>
         </aside>
 
-        <section className="flex h-full flex-col bg-ghost lg:col-span-2">
+        <section className="flex min-h-0 flex-col bg-ghost">
           <div className="flex-1 space-y-4 overflow-y-auto p-6">
             {messages.map((message) => (
               <div key={message.id} className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}>
-                <div className="max-w-sm">
+                <div className={message.role === "user" ? "max-w-xl" : "w-full max-w-none"}>
                   <div
-                    className={`rounded-sm px-5 py-3 text-sm font-quicksand ${
+                    className={`rounded-sm px-5 py-4 text-sm font-quicksand ${
                       message.role === "user"
                         ? "ml-auto bg-ink text-white"
-                        : "border border-fog bg-white text-ink"
+                        : "w-full border border-fog bg-white text-ink"
                     }`}
                   >
                     {message.role !== "user" && <Bot size={14} className="mb-2 text-ash" />}
-                    <p className="whitespace-pre-wrap">{message.text}</p>
+                    {message.role === "user" ? (
+                      <p className="whitespace-pre-wrap">{message.text}</p>
+                    ) : (
+                      <FormattedAnswer text={message.text} />
+                    )}
                   </div>
-                  <p className="mt-1 text-[10px] font-mono text-ash">{message.time}</p>
+                  <p className={`mt-1 text-[10px] font-mono text-ash ${message.role === "user" ? "text-right" : ""}`}>
+                    {message.time}
+                  </p>
                 </div>
               </div>
             ))}
 
             {sending && (
               <div className="flex justify-start">
-                <div className="max-w-sm border border-fog bg-white px-5 py-3 text-sm font-quicksand text-ink">Thinking...</div>
+                <div className="w-full border border-fog bg-white px-5 py-4 text-sm font-quicksand text-ink">Thinking...</div>
               </div>
             )}
           </div>
