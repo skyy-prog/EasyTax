@@ -1,5 +1,6 @@
 const fs = require("fs");
 const path = require("path");
+const { getUploadDir } = require("../config/env");
 const Document = require("../models/Document");
 
 const allowedTypes = ["Invoice", "PAN", "GST Certificate", "Other"];
@@ -52,7 +53,8 @@ const deleteDocument = async (req, res, next) => {
       return res.status(404).json({ message: "Document not found" });
     }
 
-    const fullPath = path.join(__dirname, "..", doc.filePath);
+    const uploadDir = path.resolve(__dirname, "..", getUploadDir());
+    const fullPath = path.join(uploadDir, path.basename(doc.filePath));
     fs.unlink(fullPath, (err) => {
       if (err && err.code !== "ENOENT") {
         return next(err);

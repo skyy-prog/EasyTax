@@ -5,6 +5,7 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const dotenv = require("dotenv");
 const connectDB = require("./config/db");
+const { getAllowedOrigins, getUploadDir, validateEnv } = require("./config/env");
 const errorMiddleware = require("./middleware/errorMiddleware");
 
 const authRoutes = require("./routes/authRoutes");
@@ -16,8 +17,10 @@ const summaryRoutes = require("./routes/summaryRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 
 dotenv.config();
+validateEnv();
 
 const app = express();
+app.set("trust proxy", 1);
 
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -33,16 +36,40 @@ const authLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin(origin, callback) {
+      const allowedOrigins = getAllowedOrigins();
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
   })
 );
 app.use(express.json({ limit: "1mb" }));
+
+const healthHandler = (req, res) => {
+  res.json({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: new Date().toISOString(),
+  });
+};
+
+app.get("/health", healthHandler);
+app.get("/api/health", healthHandler);
+
 app.use(globalLimiter);
 
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use("/uploads", express.static(path.resolve(__dirname, getUploadDir())));
 
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/products", productRoutes);
