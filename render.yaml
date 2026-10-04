@@ -19,7 +19,7 @@ services:
       - key: GEMINI_API_KEY
         sync: false
       - key: CLIENT_URL
-        sync: false
+        value: https://easytax-web.onrender.com
       - key: MAX_UPLOAD_MB
         value: 5
       - key: UPLOAD_DIR
@@ -40,4 +40,4 @@ services:
         destination: /index.html
     envVars:
       - key: VITE_API_URL
-        sync: false
+        value: https://easytax-api.onrender.com/api

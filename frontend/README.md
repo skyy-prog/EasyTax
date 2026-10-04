@@ -15,9 +15,19 @@ EasyTax frontend is a React + Vite dashboard for tax and sales management. It co
 
      VITE_API_URL=http://localhost:5000/api
 
+   For the deployed frontend, set `VITE_API_URL` to the deployed backend URL ending in `/api`.
+
 3. Start development server:
 
    npm run dev
+
+   The development server uses `http://localhost:5000/api` by default.
+
+   To test a production build locally, create `frontend/.env.local` with:
+
+   VITE_API_URL=http://localhost:5000/api
+
+   Then run `npm run build` and `npm run preview`.
 
 ## Build
 

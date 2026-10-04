@@ -8,6 +8,22 @@ const api = axios.create({
   baseURL,
 });
 
+export const getApiErrorMessage = (error, fallbackMessage) => {
+  if (error.response?.status >= 500) {
+    return "The EasyTax API is unavailable right now. Check that the backend is running and try again.";
+  }
+
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+
+  if (error.request) {
+    return "Cannot reach the EasyTax API. Check that the backend is running and VITE_API_URL is configured.";
+  }
+
+  return fallbackMessage;
+};
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
   if (token) {

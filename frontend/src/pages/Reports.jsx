@@ -1,15 +1,37 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, Download } from "lucide-react";
+import { jsPDF } from "jspdf";
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/axios";
 import ErrorBanner from "../components/ErrorBanner";
 import Loader from "../components/Loader";
+import { useAuth } from "../context/AuthContext";
 
 const amount = (value) => `₹ ${Number(value || 0).toLocaleString("en-IN")}`;
+const pdfAmount = (value) => `INR ${Number(value || 0).toFixed(2)}`;
+
+const formatLocalDate = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+const getMonthStart = () => {
+  const date = new Date();
+  date.setDate(1);
+  return formatLocalDate(date);
+};
+
+const getToday = () => formatLocalDate(new Date());
 
 export default function Reports() {
+  const { user } = useAuth();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [fromDate, setFromDate] = useState(getMonthStart);
+  const [toDate, setToDate] = useState(getToday);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -35,6 +57,130 @@ export default function Reports() {
     fetchHistory();
   }, []);
 
+  const handleExport = async () => {
+    if (!fromDate || !toDate || fromDate > toDate) {
+      setError("Choose a valid date range for the export");
+      return;
+    }
+
+    setExporting(true);
+    setError("");
+    try {
+      const { data } = await api.get("/sales", {
+        params: { from: fromDate, to: toDate },
+      });
+      const sales = Array.isArray(data) ? data : data?.sales || [];
+      const totals = sales.reduce(
+        (result, sale) => {
+          result.baseAmount += Number(sale.baseAmount || 0);
+          result.gstAmount += Number(sale.gstAmount ?? sale.gstCollected ?? 0);
+          result.totalAmount += Number(sale.totalAmount || 0);
+          result.quantity += Number(sale.quantity || 0);
+          return result;
+        },
+        { baseAmount: 0, gstAmount: 0, totalAmount: 0, quantity: 0 }
+      );
+
+      const document = new jsPDF();
+      const pageWidth = document.internal.pageSize.getWidth();
+      const pageHeight = document.internal.pageSize.getHeight();
+      const margin = 16;
+      let y = 18;
+
+      const drawHeader = () => {
+        document.setFont("helvetica", "bold");
+        document.setFontSize(18);
+        document.text(user?.shopName || "EasyTax Business", margin, y);
+        document.setFont("helvetica", "normal");
+        document.setFontSize(9);
+        y += 7;
+        document.text("Sales and Tax Report", margin, y);
+        y += 5;
+        document.text(`Period: ${fromDate} to ${toDate}`, margin, y);
+        if (user?.gstin) {
+          document.text(`GSTIN: ${user.gstin}`, pageWidth - margin, y, { align: "right" });
+        }
+        y += 9;
+        document.setDrawColor(180, 180, 180);
+        document.line(margin, y, pageWidth - margin, y);
+        y += 8;
+      };
+
+      const drawTableHeader = () => {
+        document.setFillColor(242, 242, 242);
+        document.rect(margin, y - 5, pageWidth - margin * 2, 8, "F");
+        document.setFont("helvetica", "bold");
+        document.setFontSize(8);
+        document.text("Date", margin + 2, y);
+        document.text("Product", margin + 25, y);
+        document.text("Qty", margin + 91, y, { align: "right" });
+        document.text("Taxable", margin + 123, y, { align: "right" });
+        document.text("GST", margin + 153, y, { align: "right" });
+        document.text("Total", pageWidth - margin - 2, y, { align: "right" });
+        y += 8;
+        document.setFont("helvetica", "normal");
+      };
+
+      drawHeader();
+      drawTableHeader();
+
+      sales.forEach((sale) => {
+        if (y > pageHeight - 28) {
+          document.addPage();
+          y = 18;
+          drawHeader();
+          drawTableHeader();
+        }
+
+        const date = new Date(sale.date || sale.createdAt).toLocaleDateString("en-IN");
+        const product = String(sale.productName || "Unknown").slice(0, 28);
+        document.setFontSize(8);
+        document.text(date, margin + 2, y);
+        document.text(product, margin + 25, y);
+        document.text(String(sale.quantity || 0), margin + 91, y, { align: "right" });
+        document.text(pdfAmount(sale.baseAmount), margin + 123, y, { align: "right" });
+        document.text(pdfAmount(sale.gstAmount ?? sale.gstCollected), margin + 153, y, { align: "right" });
+        document.text(pdfAmount(sale.totalAmount), pageWidth - margin - 2, y, { align: "right" });
+        y += 6;
+      });
+
+      if (y > pageHeight - 58) {
+        document.addPage();
+        y = 18;
+      }
+
+      y += 4;
+      document.setDrawColor(120, 120, 120);
+      document.line(margin, y, pageWidth - margin, y);
+      y += 8;
+      document.setFont("helvetica", "bold");
+      document.setFontSize(10);
+      document.text("Summary", margin, y);
+      y += 7;
+      document.setFont("helvetica", "normal");
+      document.setFontSize(9);
+      document.text(`Items sold: ${totals.quantity}`, margin, y);
+      document.text(`Taxable sales: ${pdfAmount(totals.baseAmount)}`, pageWidth - margin, y, { align: "right" });
+      y += 6;
+      document.text("GST collected:", margin, y);
+      document.text(pdfAmount(totals.gstAmount), pageWidth - margin, y, { align: "right" });
+      y += 7;
+      document.setFont("helvetica", "bold");
+      document.text("Total sales:", margin, y);
+      document.text(pdfAmount(totals.totalAmount), pageWidth - margin, y, { align: "right" });
+      y += 12;
+      document.setFont("helvetica", "italic");
+      document.setFontSize(8);
+      document.text("Generated by EasyTax", margin, y);
+
+      document.save(`easytax-sales-report-${fromDate}-to-${toDate}.pdf`);
+    } catch (err) {
+      setError(err.response?.data?.message || "Unable to export the sales report");
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const chartRows = useMemo(
     () =>
       [...rows]
@@ -58,10 +204,39 @@ export default function Reports() {
 
   return (
     <div>
-      <div className="mb-8 flex items-center justify-between border-b border-fog pb-6">
+      <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-fog pb-6">
         <div>
           <p className="mb-1 text-xs font-mono uppercase tracking-widest text-ash">EASYTAX / REPORTS</p>
           <h1 className="text-3xl font-quicksand font-bold text-ink">Reports</h1>
+        </div>
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-[10px] font-mono uppercase tracking-widest text-ash">
+            From
+            <input
+              type="date"
+              value={fromDate}
+              onChange={(event) => setFromDate(event.target.value)}
+              className="mt-1 block border border-fog bg-white px-2 py-2 text-xs font-mono text-ink focus:border-ink focus:outline-none"
+            />
+          </label>
+          <label className="text-[10px] font-mono uppercase tracking-widest text-ash">
+            To
+            <input
+              type="date"
+              value={toDate}
+              onChange={(event) => setToDate(event.target.value)}
+              className="mt-1 block border border-fog bg-white px-2 py-2 text-xs font-mono text-ink focus:border-ink focus:outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex items-center gap-2 rounded-sm bg-ink px-4 py-2.5 text-sm font-quicksand font-semibold text-white transition-colors hover:bg-smoke disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Download size={15} />
+            {exporting ? "Exporting..." : "Export PDF"}
+          </button>
         </div>
       </div>
 
