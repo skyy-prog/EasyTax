@@ -5,6 +5,7 @@ node_modules/
 # Build outputs
 frontend/dist/
 frontend/.vite/
+frontend/dev-dist/
 backend/dist/
 
 # Environment files
