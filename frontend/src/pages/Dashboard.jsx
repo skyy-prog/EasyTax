@@ -1,4 +1,4 @@
-import { Check, Receipt } from "lucide-react";
+import { Check, Receipt, RefreshCw, ShieldAlert, Target } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/axios";
 import ErrorBanner from "../components/ErrorBanner";
@@ -12,6 +12,15 @@ const emptySummary = {
   totalExpenses: 0,
 };
 
+const emptyHealthCheck = {
+  score: 0,
+  verdict: "Generate today's summary to unlock AI insights.",
+  risks: [],
+  opportunities: [],
+  nextActions: [],
+  confidence: "low",
+};
+
 const amount = (value) => `₹ ${Number(value || 0).toLocaleString("en-IN")}`;
 
 export default function Dashboard() {
@@ -22,6 +31,8 @@ export default function Dashboard() {
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [healthCheck, setHealthCheck] = useState(emptyHealthCheck);
+  const [checkingHealth, setCheckingHealth] = useState(false);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -60,12 +71,53 @@ export default function Dashboard() {
         totalExpenses: today.totalExpenses || 0,
       });
       setSales(saleList);
+      await fetchHealthCheck(
+        {
+          totalSales: today.totalSales || 0,
+          gstCollected: today.gstCollected || 0,
+          netProfit: today.netProfit || 0,
+          totalExpenses: today.totalExpenses || 0,
+        },
+        saleList
+      );
     } catch (err) {
       setError(err.response?.data?.message || "Unable to load dashboard data");
       setSummary(emptySummary);
       setSales([]);
+      setHealthCheck(emptyHealthCheck);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchHealthCheck = async (summaryData = summary, salesData = sales) => {
+    try {
+      setCheckingHealth(true);
+      const { data } = await api.post("/chat/health-check", {
+        summary: summaryData,
+        sales: salesData.map((sale) => ({
+          productName: sale.productName || sale.product?.name || "Product",
+          quantity: Number(sale.quantity || 0),
+          baseAmount: Number(sale.baseAmount || 0),
+          gstAmount: Number(sale.gstAmount || sale.gstCollected || 0),
+          totalAmount: Number(sale.totalAmount || 0),
+        })),
+      });
+      setHealthCheck({
+        score: Number(data?.score || 0),
+        verdict: data?.verdict || emptyHealthCheck.verdict,
+        risks: Array.isArray(data?.risks) ? data.risks : [],
+        opportunities: Array.isArray(data?.opportunities) ? data.opportunities : [],
+        nextActions: Array.isArray(data?.nextActions) ? data.nextActions : [],
+        confidence: data?.confidence || "medium",
+      });
+    } catch (err) {
+      setHealthCheck({
+        ...emptyHealthCheck,
+        verdict: "AI health check is unavailable right now.",
+      });
+    } finally {
+      setCheckingHealth(false);
     }
   };
 
@@ -150,6 +202,81 @@ export default function Dashboard() {
           <p className="mt-3 text-xs font-quicksand text-ash">Operating costs for today</p>
         </article>
       </div>
+
+      <section className="mb-8 border border-ink bg-white">
+        <div className="grid gap-0 lg:grid-cols-[minmax(240px,0.8fr)_1.2fr]">
+          <div className="border-b border-fog bg-ink p-6 text-white lg:border-b-0 lg:border-r lg:border-r-smoke">
+            <div className="mb-5 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                 
+                <p className="text-[11px] font-mono uppercase tracking-widest text-white/70"> Tax Health</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => fetchHealthCheck()}
+                disabled={checkingHealth}
+                className="grid h-9 w-9 place-items-center rounded-sm border border-white/20 text-white transition-colors hover:bg-white hover:text-ink disabled:cursor-not-allowed disabled:opacity-60"
+                title="Refresh AI health check"
+              >
+                <RefreshCw size={15} className={checkingHealth ? "animate-spin" : ""} />
+              </button>
+            </div>
+
+            <div className="flex items-end gap-3">
+              <p className="font-mono text-6xl font-bold leading-none">{Math.round(healthCheck.score)}</p>
+              <p className="mb-2 font-mono text-sm uppercase tracking-widest text-white/60">/ 100</p>
+            </div>
+            <p className="mt-4 text-lg font-quicksand font-semibold leading-snug">{healthCheck.verdict}</p>
+            <p className="mt-5 inline-flex border border-white/20 px-2 py-1 text-[10px] font-mono uppercase tracking-widest text-white/70">
+              {healthCheck.confidence} confidence
+            </p>
+          </div>
+
+          <div className="grid gap-0 md:grid-cols-3">
+            <div className="border-b border-fog p-5 md:border-b-0 md:border-r">
+              <div className="mb-4 flex items-center gap-2 text-ink">
+                <ShieldAlert size={16} />
+                <h3 className="text-sm font-quicksand font-bold">Risks</h3>
+              </div>
+              <ul className="space-y-3">
+                {(healthCheck.risks.length ? healthCheck.risks : ["No risks detected yet."]).map((item) => (
+                  <li key={item} className="text-sm font-quicksand leading-relaxed text-ash">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="border-b border-fog p-5 md:border-b-0 md:border-r">
+              <div className="mb-4 flex items-center gap-2 text-ink">
+               
+                <h3 className="text-sm font-quicksand font-bold">Opportunities</h3>
+              </div>
+              <ul className="space-y-3">
+                {(healthCheck.opportunities.length ? healthCheck.opportunities : ["Add sales and expenses for sharper insights."]).map((item) => (
+                  <li key={item} className="text-sm font-quicksand leading-relaxed text-ash">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="p-5">
+              <div className="mb-4 flex items-center gap-2 text-ink">
+                <Target size={16} />
+                <h3 className="text-sm font-quicksand font-bold">Next Actions</h3>
+              </div>
+              <ul className="space-y-3">
+                {(healthCheck.nextActions.length ? healthCheck.nextActions : ["Generate a summary after today's entries."]).map((item) => (
+                  <li key={item} className="text-sm font-quicksand leading-relaxed text-ash">
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
 
       <section className="border border-fog bg-white overflow-hidden">
         <div className="border-b border-fog bg-ghost px-5 py-3">

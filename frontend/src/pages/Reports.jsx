@@ -1,5 +1,16 @@
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { BarChart3, Download } from "lucide-react";
+import {
+  AlertTriangle,
+  BarChart3,
+  Bot,
+  CheckCircle2,
+  Download,
+  Lightbulb,
+  ShieldCheck,
+  Target,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { jsPDF } from "jspdf";
 import { useEffect, useMemo, useState } from "react";
 import api from "../api/axios";
@@ -24,6 +35,10 @@ const getMonthStart = () => {
 };
 
 const getToday = () => formatLocalDate(new Date());
+const percent = (value) => `${Math.abs(value).toFixed(1)}%`;
+const average = (values) => (values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0);
+
+const getRowValue = (row, key) => Number(row?.[key] || 0);
 
 export default function Reports() {
   const { user } = useAuth();
@@ -202,6 +217,82 @@ export default function Reports() {
     [rows]
   );
 
+  const aiBriefing = useMemo(() => {
+    const recent = rows.slice(0, 7);
+    const previous = rows.slice(7, 14);
+    const recentSales = average(recent.map((row) => getRowValue(row, "totalSales")));
+    const previousSales = average(previous.map((row) => getRowValue(row, "totalSales")));
+    const recentProfit = average(recent.map((row) => getRowValue(row, "netProfit")));
+    const previousProfit = average(previous.map((row) => getRowValue(row, "netProfit")));
+    const salesChange = previousSales ? ((recentSales - previousSales) / previousSales) * 100 : 0;
+    const profitChange = previousProfit ? ((recentProfit - previousProfit) / Math.abs(previousProfit)) * 100 : 0;
+    const totalSales = recent.reduce((sum, row) => sum + getRowValue(row, "totalSales"), 0);
+    const totalGst = recent.reduce((sum, row) => sum + getRowValue(row, "gstCollected"), 0);
+    const totalExpenses = recent.reduce((sum, row) => sum + getRowValue(row, "totalExpenses"), 0);
+    const margin = totalSales ? ((totalSales - totalExpenses) / totalSales) * 100 : 0;
+    const gstRate = totalSales ? (totalGst / totalSales) * 100 : 0;
+    const lowestProfitRow = recent.reduce(
+      (lowest, row) =>
+        getRowValue(row, "netProfit") < getRowValue(lowest, "netProfit") ? row : lowest,
+      recent[0]
+    );
+    const hasData = recent.length > 0;
+    const isAtRisk = margin < 10 || profitChange < -15;
+    const score = hasData
+      ? Math.max(0, Math.min(100, Math.round(72 + Math.min(margin, 20) - (isAtRisk ? 16 : 0))))
+      : 0;
+
+    const actions = [];
+    if (salesChange < -5) {
+      actions.push({
+        icon: TrendingDown,
+        title: "Recover sales momentum",
+        text: `Sales are down ${percent(salesChange)} versus the previous period. Review your top-selling products and follow up on repeat customers.`,
+      });
+    } else {
+      actions.push({
+        icon: TrendingUp,
+        title: "Protect the growth trend",
+        text: `Sales are ${salesChange >= 0 ? "up" : "steady"} ${percent(salesChange)} versus the previous period. Keep inventory ready for your strongest products.`,
+      });
+    }
+    if (margin < 15) {
+      actions.push({
+        icon: Target,
+        title: "Watch operating margin",
+        text: `Your estimated margin is ${percent(margin)}. Compare supplier pricing and recurring expenses before the next restock.`,
+      });
+    } else {
+      actions.push({
+        icon: CheckCircle2,
+        title: "Margin is in a healthy range",
+        text: `Estimated margin is ${percent(margin)}. Keep monitoring expenses so the current buffer is maintained.`,
+      });
+    }
+    actions.push({
+      icon: Lightbulb,
+      title: "Prepare the GST checkpoint",
+      text: `Set aside ${amount(totalGst)} as the GST collected in the latest ${recent.length}-day window and reconcile it with your invoices.`,
+    });
+
+    return {
+      hasData,
+      score,
+      salesChange,
+      profitChange,
+      margin,
+      gstRate,
+      forecast: recentProfit * 7,
+      anomaly: lowestProfitRow
+        ? {
+            date: new Date(lowestProfitRow.date || lowestProfitRow.createdAt).toLocaleDateString("en-IN"),
+            profit: getRowValue(lowestProfitRow, "netProfit"),
+          }
+        : null,
+      actions,
+    };
+  }, [rows]);
+
   return (
     <div>
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4 border-b border-fog pb-6">
@@ -242,6 +333,90 @@ export default function Reports() {
 
       {loading && <Loader />}
       <ErrorBanner message={error} />
+
+      <section className="mb-8 overflow-hidden border border-ink bg-white">
+        <div className="flex flex-wrap items-start justify-between gap-4 bg-ink px-6 py-5 text-white">
+          <div className="flex gap-3">
+             
+            <div>
+              <p className="text-[10px] font-mono uppercase tracking-widest text-silver">AI-ASSISTED / EXPLAINABLE ANALYSIS</p>
+              <h2 className="mt-1 text-xl font-quicksand font-bold">Your business briefing</h2>
+              <p className="mt-1 max-w-2xl text-xs font-quicksand text-silver">
+                A private, rule-based intelligence layer that turns your report history into decisions you can act on.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="text-right">
+              <p className="text-[10px] font-mono uppercase tracking-widest text-silver">Health score</p>
+              <p className="text-2xl font-mono font-bold">{aiBriefing.hasData ? `${aiBriefing.score}/100` : "—"}</p>
+            </div>
+            <ShieldCheck size={25} className={aiBriefing.score >= 70 ? "text-white" : "text-silver"} />
+          </div>
+        </div>
+
+        {!aiBriefing.hasData ? (
+          <div className="px-6 py-8 text-sm text-ash">Add summary records to generate your first AI briefing.</div>
+        ) : (
+          <>
+            <div className="grid gap-px border-b border-fog bg-fog sm:grid-cols-3">
+              <div className="bg-white px-6 py-4">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-ash">Sales momentum</p>
+                <p className="mt-2 flex items-center gap-2 text-lg font-mono font-bold text-ink">
+                  {aiBriefing.salesChange >= 0 ? <TrendingUp size={17} /> : <TrendingDown size={17} />}
+                  {aiBriefing.salesChange >= 0 ? "+" : "-"}{percent(aiBriefing.salesChange)}
+                </p>
+                <p className="mt-1 text-xs text-ash">vs previous 7 recorded days</p>
+              </div>
+              <div className="bg-white px-6 py-4">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-ash">Estimated margin</p>
+                <p className="mt-2 text-lg font-mono font-bold text-ink">{percent(aiBriefing.margin)}</p>
+                <p className="mt-1 text-xs text-ash">sales less recorded expenses</p>
+              </div>
+              <div className="bg-white px-6 py-4">
+                <p className="text-[10px] font-mono uppercase tracking-widest text-ash">7-day profit outlook</p>
+                <p className="mt-2 text-lg font-mono font-bold text-ink">{amount(aiBriefing.forecast)}</p>
+                <p className="mt-1 text-xs text-ash">run-rate estimate, not a guarantee</p>
+              </div>
+            </div>
+
+            <div className="grid gap-6 p-6 lg:grid-cols-[1fr_1.25fr]">
+              <div className="border border-fog bg-ghost p-5">
+                <div className="mb-4 flex items-center gap-2">
+                  {aiBriefing.anomaly && aiBriefing.anomaly.profit < 0 ? (
+                    <AlertTriangle size={16} className="text-ash" />
+                  ) : (
+                    <CheckCircle2 size={16} className="text-ash" />
+                  )}
+                  <h3 className="text-sm font-quicksand font-bold text-ink">Risk signal</h3>
+                </div>
+                <p className="text-sm leading-relaxed text-ink">
+                  {aiBriefing.anomaly && aiBriefing.anomaly.profit < 0
+                    ? `A loss was detected on ${aiBriefing.anomaly.date}. Review the invoices and expenses for that day before filing.`
+                    : `No loss-making day was detected in the latest ${Math.min(rows.length, 7)} recorded days.`}
+                </p>
+                <p className="mt-4 border-t border-fog pt-3 text-[10px] font-mono uppercase tracking-widest text-ash">
+                  GST mix: {percent(aiBriefing.gstRate)} of sales
+                </p>
+              </div>
+              <div>
+                <h3 className="mb-3 text-sm font-quicksand font-bold text-ink">Recommended next actions</h3>
+                <div className="space-y-3">
+                  {aiBriefing.actions.map(({ icon: Icon, title, text }) => (
+                    <div key={title} className="flex gap-3 border-b border-fog pb-3 last:border-0 last:pb-0">
+                      <Icon size={16} className="mt-0.5 flex-none text-ash" />
+                      <div>
+                        <p className="text-sm font-quicksand font-semibold text-ink">{title}</p>
+                        <p className="mt-1 text-xs leading-relaxed text-ash">{text}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
 
       <section className="mb-8 border border-fog bg-white p-6">
         <h2 className="mb-4 flex items-center gap-2 text-lg font-quicksand font-semibold text-ink">

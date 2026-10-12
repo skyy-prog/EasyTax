@@ -184,8 +184,8 @@ export default function Chatbot() {
     <div className="flex min-h-[calc(100vh-8rem)] flex-col">
       <div className="mb-8 flex items-center justify-between border-b border-fog pb-6">
         <div>
-          <p className="mb-1 text-xs font-mono uppercase tracking-widest text-ash">EASYTAX / CHATBOT</p>
-          <h1 className="text-3xl font-quicksand font-bold text-ink">Chatbot</h1>
+          <p className="mb-1 text-xs font-mono uppercase tracking-widest text-ash">EASYTAX / AI Asisst</p>
+          <h1 className="text-3xl font-quicksand font-bold text-ink">Use AI</h1>
         </div>
       </div>
 
